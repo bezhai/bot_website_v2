@@ -26,8 +26,11 @@ export const Navbar: React.FC = () => {
       } catch (e) {
         console.error('Failed to parse user data:', e);
       }
+    } else {
+      // 如果没有 token，清除用户状态
+      setUser(null);
     }
-  }, []);
+  }, [pathname]); // 监听路由变化，每次导航时重新检查认证状态
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -81,6 +84,12 @@ export const Navbar: React.FC = () => {
                 <span className="text-sm text-neutral-600 font-light">
                   {user.nickname}
                 </span>
+                <Link
+                  href="/settings"
+                  className="text-sm font-light text-neutral-600 hover:text-neutral-900 transition-colors"
+                >
+                  设置
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="text-sm font-light text-neutral-900 hover:text-neutral-600 transition-colors"
