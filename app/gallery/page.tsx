@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Image from 'next/image';
 
@@ -52,7 +52,7 @@ interface FilterState {
   visibility: VisibilityFilter;
 }
 
-export default function GalleryPage() {
+function GalleryContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -928,5 +928,43 @@ export default function GalleryPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function GalleryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-neutral-50">
+          <div className="border-b border-neutral-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+            <div className="max-w-7xl mx-auto px-6 py-4">
+              <div className="flex items-center justify-between mb-4">
+                <h1 className="text-2xl font-light tracking-tight text-neutral-900">
+                  图库
+                </h1>
+              </div>
+              <div className="flex gap-8 border-b border-neutral-200 pb-2">
+                <div className="text-sm font-medium text-neutral-500">全部</div>
+              </div>
+            </div>
+          </div>
+          <div className="max-w-7xl mx-auto px-6 py-6">
+            <div className="flex justify-center items-center py-32">
+              <div className="flex space-x-1">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="w-2 h-2 bg-neutral-900 rounded-full animate-pulse"
+                    style={{ animationDelay: `${i * 0.15}s` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <GalleryContent />
+    </Suspense>
   );
 }
