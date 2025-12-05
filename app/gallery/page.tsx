@@ -57,6 +57,7 @@ export default function GalleryPage() {
   const [page, setPage] = useState(1);
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<PixivImage | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     author: '',
     authorId: '',
@@ -189,6 +190,49 @@ export default function GalleryPage() {
   };
 
   const hasActiveFilters = filters.author || filters.authorId || filters.illustId || filters.tags.length > 0;
+
+  // 处理键盘事件（ESC 关闭弹窗）
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedImage) {
+        setSelectedImage(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImage]);
+
+  // 下载图片
+  const handleDownload = async (image: PixivImage) => {
+    try {
+      const link = document.createElement('a');
+      link.href = image.download_url;
+      link.download = `${image.title || image.illust_id}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Download error:', error);
+    }
+  };
+
+  // 打开图片详情
+  const handleImageClick = (image: PixivImage) => {
+    setSelectedImage(image);
+  };
+
+  // 从 pixiv_addr 提取作品 ID 并生成 Pixiv URL
+  const getPixivUrl = (pixivAddr: string): string | null => {
+    if (!pixivAddr) return null;
+
+    // 提取 _ 之前的数字，例如从 "123456_p3.jpg" 提取 "123456"
+    const match = pixivAddr.match(/^(\d+)_/);
+    if (match && match[1]) {
+      return `https://www.pixiv.net/artworks/${match[1]}`;
+    }
+    return null;
+  };
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -377,6 +421,7 @@ export default function GalleryPage() {
                   className="break-inside-avoid group cursor-pointer"
                   onMouseEnter={() => setHoveredImage(image._id)}
                   onMouseLeave={() => setHoveredImage(null)}
+                  onClick={() => handleImageClick(image)}
                 >
                   <div className="relative overflow-hidden bg-neutral-100">
                     {image.show_url ? (
@@ -494,6 +539,148 @@ export default function GalleryPage() {
           </>
         )}
       </div>
+
+      {/* 图片详情弹窗 */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div
+            className="relative bg-white max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 关闭按钮 */}
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center bg-white/90 hover:bg-white text-neutral-900 transition-colors"
+              aria-label="关闭"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+              {/* 左侧：图片 */}
+              <div className="relative bg-neutral-100 flex items-center justify-center p-8">
+                {selectedImage.show_url && (
+                  <div className="relative w-full flex items-center justify-center">
+                    <Image
+                      src={selectedImage.show_url}
+                      alt={selectedImage.title || 'Gallery image'}
+                      width={selectedImage.width || 800}
+                      height={selectedImage.height || 800}
+                      className="max-w-full h-auto max-h-[70vh] object-contain"
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                      priority
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 右侧：信息 */}
+              <div className="p-8 flex flex-col">
+                {/* 标题 */}
+                <div className="mb-6">
+                  <h2 className="text-xl font-light tracking-tight text-neutral-900 mb-2">
+                    {selectedImage.title || '无标题'}
+                  </h2>
+                  {selectedImage.author && (
+                    <p className="text-sm text-neutral-600 font-light">
+                      作者：{selectedImage.author}
+                      {selectedImage.author_id && (
+                        <span className="text-neutral-400 ml-2">ID: {selectedImage.author_id}</span>
+                      )}
+                    </p>
+                  )}
+                </div>
+
+                {/* 基本信息 */}
+                <div className="mb-6 pb-6 border-b border-neutral-200">
+                  <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-3">
+                    基本信息
+                  </h3>
+                  <div className="space-y-2 text-sm font-light">
+                    <div className="flex justify-between">
+                      <span className="text-neutral-600">作品ID</span>
+                      <span className="text-neutral-900">{selectedImage.illust_id}</span>
+                    </div>
+                    {selectedImage.width && selectedImage.height && (
+                      <div className="flex justify-between">
+                        <span className="text-neutral-600">尺寸</span>
+                        <span className="text-neutral-900">
+                          {selectedImage.width} × {selectedImage.height}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-neutral-600">类型</span>
+                      <span className="text-neutral-900">
+                        {selectedImage.visible ? '常规' : 'R-18'}
+                      </span>
+                    </div>
+                    {selectedImage.create_time && (
+                      <div className="flex justify-between">
+                        <span className="text-neutral-600">创建时间</span>
+                        <span className="text-neutral-900">
+                          {new Date(selectedImage.create_time).toLocaleDateString('zh-CN')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 标签 */}
+                {selectedImage.multi_tags && selectedImage.multi_tags.length > 0 && (
+                  <div className="mb-6 pb-6 border-b border-neutral-200">
+                    <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-3">
+                      标签
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedImage.multi_tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-light transition-colors"
+                        >
+                          {tag.translation || tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 操作按钮 */}
+                <div className="mt-auto space-y-3">
+                  <button
+                    onClick={() => handleDownload(selectedImage)}
+                    className="w-full px-6 py-3 bg-neutral-900 text-white text-sm font-light hover:bg-neutral-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    下载图片
+                  </button>
+
+                  {selectedImage.pixiv_addr && getPixivUrl(selectedImage.pixiv_addr) && (
+                    <a
+                      href={getPixivUrl(selectedImage.pixiv_addr)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full px-6 py-3 border border-neutral-300 text-neutral-900 text-sm font-light hover:bg-neutral-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      在 Pixiv 查看
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
