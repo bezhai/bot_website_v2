@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 interface MultiTag {
@@ -49,6 +50,7 @@ interface FilterState {
 }
 
 export default function GalleryPage() {
+  const router = useRouter();
   const [images, setImages] = useState<PixivImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('all');
@@ -69,9 +71,24 @@ export default function GalleryPage() {
     totalPages: 0,
   });
 
+  // 检查登录状态
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+  }, [router]);
+
   const fetchImages = async (tabType: TabType, pageNum: number) => {
     setLoading(true);
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
       let url = `/api/gallery?page=${pageNum}&limit=20`;
 
       if (tabType === 'visible') {
@@ -94,7 +111,19 @@ export default function GalleryPage() {
         url += `&tags=${encodeURIComponent(filters.tags.join(','))}`;
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        // Token 失效，跳转到登录页
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        router.push('/login');
+        return;
+      }
 
       if (!response.ok) {
         throw new Error('Failed to fetch images');
@@ -174,8 +203,8 @@ export default function GalleryPage() {
           <div className="flex gap-8 border-b border-neutral-200">
             {[
               { key: 'all', label: '全部' },
-              { key: 'visible', label: '可见' },
-              { key: 'hidden', label: '隐藏' }
+              { key: 'visible', label: '常规' },
+              { key: 'hidden', label: 'R-18' }
             ].map((tab) => (
               <button
                 key={tab.key}
